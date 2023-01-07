@@ -3,10 +3,10 @@ var gDonu = null;
 var gLine = null;
 var gMedia = null;
 var gMediana = null;
-var tiempoActualizacion = 5000;
+var tiempoActualizacion = 30000;
 
 $(document).ready(function () {
-    peticion();
+    getApi();
 });
 
 table = $('#table').DataTable({
@@ -34,25 +34,25 @@ table = $('#table').DataTable({
         {
             data: "entry_id",
             render: function (data) {
-                return 'LTR-' + data.toString().padStart(8, '0');
+                return 'R-' + data.toString().padStart(8, '0');
             }
         },
         {
             data: "field1",
             render: function (data) {
-                return spamBadge(data, 24.10)
+                return spamBadge(data, 30, 25)
             }
         },
         {
             data: "field2",
             render: function (data) {
-                return spamBadge(data, 44)
+                return spamBadge(data, 90, 70)
             }
         },
         {
             data: "field3",
             render: function (data) {
-                return spamBadge(data, 8)
+                return spamBadge(data, 70, 60)
             }
         },
         {
@@ -64,31 +64,7 @@ table = $('#table').DataTable({
     ]
 });
 
-function peticion() {
-    // // Crea una instancia de XMLHttpRequest
-    // var xhr = new XMLHttpRequest();
-    // // Abre la solicitud GET al archivo PHP
-    // xhr.open('GET', 'api.php');
-    // // Establece el tipo de datos esperado
-    // xhr.responseType = 'json';
-    // // Define la función que se ejecutará cuando se reciba la respuesta
-    // xhr.onload = function () {
-    //     // Obtiene los datos del servidor
-    //     var data = xhr.response;
-
-    //     table.clear();
-    //     table.rows.add(data);
-    //     table.draw();
-
-    //     doughnut(data);
-    //     line(data);
-    //     media(data);
-    //     mediana(data.feeds);
-    // };
-    // // Envía la solicitud
-    // xhr.send();
-
-
+function getApi() {
     const url = 'https://api.thingspeak.com/channels/1999874/feeds.json';
     fetch(url)
         .then(response => response.json()) // Decodificar la respuesta JSON
@@ -103,8 +79,8 @@ function peticion() {
             mediana(data.feeds);
         });
 }
-// Actualiza cada 10 segundos
-setInterval(peticion, tiempoActualizacion);
+setInterval(getApi, tiempoActualizacion);
+setInterval(actualizarGrafico, tiempoActualizacion);
 
 labels = ['Temperatura', 'Humedad de aire', 'Humedad de tierra'];
 backgroundColor = ['rgb(75, 192, 192)', 'rgb(54, 162, 235)', 'rgb(255, 99, 132)'];
@@ -117,9 +93,9 @@ function doughnut(data) {
     sumaHumedadAire = 0;
     sumaHumedad = 0;
     data.forEach(function (dato) {
-        if (!isNaN(dato.field1)) sumaTemperatura += 1;
-        if (!isNaN(dato.field2)) sumaHumedadAire += 1;
-        if (!isNaN(dato.field3)) sumaHumedad += 1;
+        if (!isNaN(dato.field1) && dato.field1 != null) sumaTemperatura += 1;
+        if (!isNaN(dato.field2) && dato.field2 != null) sumaHumedadAire += 1;
+        if (!isNaN(dato.field3) && dato.field3 != null) sumaHumedad += 1;
     });
     var ctx = $('#donu');
     gDonu = new Chart(ctx, {
@@ -137,19 +113,25 @@ function doughnut(data) {
     });
 }
 
-var temperatura = 0;
-var humedad = 0;
-var humedadTierra = 0;
-var fecha = 0;
+var temperatura = [];
+var humedad = [];
+var humedadTierra = [];
+var fecha = [];
 function line(data) {
-    var cant = -15;
+    var cant = -20;
+    temperatura = [];
+    humedad = [];
+    humedadTierra = [];
+    fecha = [];
     temperatura = data.slice(cant).map(function (dato) {
         return dato.field1;
     });
     humedad = data.slice(cant).map(function (dato) {
+        if (isNaN(dato.field2) || dato.field2 == null) return '0';
         return dato.field2;
     });
     humedadTierra = data.slice(cant).map(function (dato) {
+        if (isNaN(dato.field3) || dato.field3 == null) return '0';
         return dato.field3;
     });
     fecha = data.slice(cant).map(function (dato) {
@@ -283,32 +265,22 @@ function actualizarGrafico() {
 
     gMediana.data.datasets[0].data = [medianaTemp, medianaHA, medianaHT];
     gMediana.update();
+    toastr.success('Registros actualizados en tiempo real.', 'Actualización', { timeOut: 3000 })
 }
-
-setInterval(actualizarGrafico, tiempoActualizacion);
 
 function formatearFecha(fecha) {
     var fecha = new Date(fecha);
-    const options = {
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-    };
-    return fecha.toLocaleString('es-ES', options);
+    var dia = fecha.toLocaleDateString('es-ES', { day: '2-digit' });
+    var mes = fecha.toLocaleDateString('es-ES', { month: '2-digit' });
+    var anio = fecha.toLocaleDateString('es-ES', { year: 'numeric' });
+    var hora = fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return dia + '-' + mes + '-' + anio + ' ' + hora;
 }
 
-function spamBadge(value, rango) {
+function spamBadge(value, max, min) {
     var valor = Number.parseFloat(value).toFixed(2);
-    if (valor > rango) return '<span class="badge bg-danger">' + valor + '</span>';
-    return '<span class="badge bg-success">' + valor + '</span>';
+    if (isNaN(valor) || valor == null || valor == '' || valor == 0) return '<span class="badge bg-secondary">- -</span>';
+    if (valor > max) return '<span class="badge bg-danger">' + valor + '</span>';
+    if (valor >= min) return '<span class="badge bg-success">' + valor + '</span>';
+    return '<span class="badge bg-warning">' + valor + '</span>';
 }
-
-const alertStatus = (title, sms, type) => Swal.fire(title, sms, type);
-// function alert(type, message, time) { Swal.fire({ icon: type, title: message, showConfirmButton: false, timer: time }) }
-
-
-// $('#search').click(function (e) {
-//     let fecha_desde = $("#fecha_desde").val();
-//     let fecha_hasta = $("#fecha_hasta").val();
-//     console.log("🚀 ~ file: script.js:3 ~ fecha_actual", fecha_desde, fecha_hasta)
-//     // alertStatus('asd', 'asd', 'success');
-// });
