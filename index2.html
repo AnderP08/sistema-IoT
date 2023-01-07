@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App</title>
+    <link rel="stylesheet" href="public/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="public/dataTable/datatables.min.css" />
+</head>
+
+<body class="bg-light">
+    <div class="container py-4">
+
+        <div class="card m-auto">
+            <div class="card-header">
+                <h3 class="text-center text-uppercase">Sistema</h3>
+            </div>
+
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-xl-3 col-md-4 col-sm-6">
+                        <div class="form-floating">
+                            <input type="date" class="form-control" id="fecha_desde">
+                            <label>Desde <span class="text-danger">*</span></label>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-4 col-sm-6">
+                        <div class="form-floating">
+                            <input type="date" class="form-control" id="fecha_hasta">
+                            <label>Hasta <span class="text-danger">*</span></label>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-4 col-sm-6 d-flex align-items-center justify-content-center">
+                        <button class="btn btn-primary" id="search">Consultar</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <!-- <div class="table-responsibe">
+                        <table class="table table-hover caption-top" id="table">
+                            <caption>Lista de temperatura</caption>
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col">#</th>
+                                    <th scope="col">Hora</th>
+                                    <th scope="col">Temperatura</th>
+                                    <th scope="col">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div> -->
+
+                    <p>Último dato del campo 1: <span id="last-data"></span></p>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <h2 class="bg-success rounded p-1 text-white">Gráficos estadisticos
+                        </h2>
+                    </div>
+                    <div class="col-lg-4 col-md-4">
+                        <canvas id="donu"></canvas>
+                    </div>
+                    <div class="col-lg-4 col-md-4">
+                        <canvas id="myChart" height="200px"></canvas>
+                    </div>
+                    <div class="col-lg-4 col-md-4">
+                        <canvas id="myChart3" height="200px"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="public/jquery-3.6.2.min.js"></script>
+
+    <script src="public/js/bootstrap.min.js"></script>
+    <script src="public/js/bootstrap.bundle.min.js"></script>
+
+    <script type="text/javascript" src="public/dataTable/datatables.min.js"></script>
+
+    <script src="public/chart.js"></script>
+    <script src="public/sweetalert2.all.min.js"></script>
+
+    <script src="script.js"></script>
+
+
+</body>
+
+</html>
