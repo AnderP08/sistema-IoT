@@ -1,12 +1,17 @@
-var table = null;
-var gDonu = null;
-var gLine = null;
-var gMedia = null;
-var gMediana = null;
-var tiempoActualizacion = 30000;
+var table;
+var doughnutChart;
+var LineChart;
+var mediaChart;
+var medianaChart;
+var tiempoActualizacion = 10000;
+var alertShown = false;
+
+labels = ['Temperatura', 'Humedad de aire', 'Humedad de tierra'];
+backgroundColor = ['rgb(75, 192, 192)', 'rgb(54, 162, 235)', 'rgb(255, 99, 132)'];
 
 $(document).ready(function () {
     getApi();
+    setInterval(getApi, tiempoActualizacion);
 });
 
 table = $('#table').DataTable({
@@ -67,8 +72,9 @@ table = $('#table').DataTable({
 function getApi() {
     const url = 'https://api.thingspeak.com/channels/1999874/feeds.json';
     fetch(url)
-        .then(response => response.json()) // Decodificar la respuesta JSON
+        .then(response => response.json())
         .then(data => {
+            console.log("🚀 ~ file: script.js:73 ~ getApi ~ data", data.feeds)
             table.clear();
             table.rows.add(data.feeds);
             table.draw();
@@ -79,193 +85,133 @@ function getApi() {
             mediana(data.feeds);
         });
 }
-setInterval(getApi, tiempoActualizacion);
-setInterval(actualizarGrafico, tiempoActualizacion);
 
-labels = ['Temperatura', 'Humedad de aire', 'Humedad de tierra'];
-backgroundColor = ['rgb(75, 192, 192)', 'rgb(54, 162, 235)', 'rgb(255, 99, 132)'];
-
-var sumaTemperatura = 0;
-var sumaHumedadAire = 0;
-var sumaHumedad = 0;
 function doughnut(data) {
-    sumaTemperatura = 0;
-    sumaHumedadAire = 0;
-    sumaHumedad = 0;
-    data.forEach(function (dato) {
-        if (!isNaN(dato.field1) && dato.field1 != null) sumaTemperatura += 1;
-        if (!isNaN(dato.field2) && dato.field2 != null) sumaHumedadAire += 1;
-        if (!isNaN(dato.field3) && dato.field3 != null) sumaHumedad += 1;
-    });
-    var ctx = $('#donu');
-    gDonu = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: [sumaTemperatura, sumaHumedadAire, sumaHumedad],
-                backgroundColor: backgroundColor,
-            }],
-        },
-        options: {
-            maintainAspectRatio: false,
-        },
-    });
+    sumaTemperatura = data.filter(dato => !isNaN(dato.field1) && dato.field1 != null && dato.field1 != 0).length;
+    sumaHumedadAire = data.filter(dato => !isNaN(dato.field2) && dato.field2 != null && dato.field2 != 0).length;
+    sumaHumedad = data.filter(dato => !isNaN(dato.field3) && dato.field3 != null && dato.field3 != 0).length;
+    if (typeof doughnutChart === 'undefined') {
+        var ctx = $('#donu');
+        doughnutChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: [sumaTemperatura, sumaHumedadAire, sumaHumedad],
+                    backgroundColor: backgroundColor,
+                }],
+            },
+            options: { maintainAspectRatio: false, },
+        });
+    } else { updateChart(doughnutChart, null, [sumaTemperatura, sumaHumedadAire, sumaHumedad], null, null); }
 }
 
-var temperatura = [];
-var humedad = [];
-var humedadTierra = [];
-var fecha = [];
 function line(data) {
-    var cant = -20;
-    temperatura = [];
-    humedad = [];
-    humedadTierra = [];
-    fecha = [];
-    temperatura = data.slice(cant).map(function (dato) {
-        return dato.field1;
-    });
-    humedad = data.slice(cant).map(function (dato) {
-        if (isNaN(dato.field2) || dato.field2 == null) return '0';
-        return dato.field2;
-    });
-    humedadTierra = data.slice(cant).map(function (dato) {
-        if (isNaN(dato.field3) || dato.field3 == null) return '0';
-        return dato.field3;
-    });
-    fecha = data.slice(cant).map(function (dato) {
-        return formatearFecha(dato.created_at);
-    });
+    var cant = -15;
+    const getValidData = (data, field) => data.slice(cant).map(dato => !isNaN(dato[field]) && dato[field] !== null ? dato[field] : 0);
 
-    var ctx = $('#myChart3');
-    gLine = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: fecha, // Crea un array con los números del 0 al 9
-            datasets: [{
-                label: 'Temperatura',
-                data: temperatura,
-                backgroundColor: 'rgb(75, 192, 192)',
-                borderColor: 'rgb(75, 192, 192)',
-            }, {
-                label: 'Humedad de aire',
-                data: humedad,
-                backgroundColor: 'rgb(54, 162, 235)',
-                borderColor: 'rgb(54, 162, 235)',
-            }, {
-                label: 'Humedad de tierra',
-                data: humedadTierra,
-                backgroundColor: 'rgb(255, 99, 132)',
-                borderColor: 'rgb(255, 99, 132)',
-            }],
-        },
-        options: {
-            maintainAspectRatio: false,
-        },
-    });
+    temperatura = getValidData(data, 'field1');
+    humedad = getValidData(data, 'field2');
+    humedadTierra = getValidData(data, 'field3');
+    fecha = data.slice(cant).map(function (dato) { return formatearFecha(dato.created_at); });
+
+    if (typeof LineChart === 'undefined') {
+        var ctx = $('#myChart3');
+        LineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: fecha,
+                datasets: [{
+                    label: 'Temperatura',
+                    data: temperatura,
+                    backgroundColor: 'rgb(75, 192, 192)',
+                    borderColor: 'rgb(75, 192, 192)',
+                }, {
+                    label: 'Humedad de aire',
+                    data: humedad,
+                    backgroundColor: 'rgb(54, 162, 235)',
+                    borderColor: 'rgb(54, 162, 235)',
+                }, {
+                    label: 'Humedad de tierra',
+                    data: humedadTierra,
+                    backgroundColor: 'rgb(255, 99, 132)',
+                    borderColor: 'rgb(255, 99, 132)',
+                }],
+            },
+            options: { maintainAspectRatio: false, },
+        });
+    } else { updateChart(LineChart, fecha, temperatura, humedad, humedadTierra); }
 }
 
-var mediaTemp = 0;
-var mediaHA = 0;
-var mediaHT = 0;
 function media(data) {
-    var sumaTemperatura = 0;
-    var sumaHumedadAire = 0;
-    var sumaHumedadTierra = 0;
-    var cont = 0;
-    var cont2 = 0;
-    var cont3 = 0;
-    data.forEach(function (dato) {
-        if (!isNaN(dato.field1)) {
-            sumaTemperatura += Number(dato.field1);
-            cont++;
-        }
-        if (!isNaN(dato.field2)) {
-            sumaHumedadAire += Number(dato.field2);
-            cont2++;
-        }
-        if (!isNaN(dato.field3)) {
-            sumaHumedadTierra += Number(dato.field3);
-            cont3++;
-        }
-    });
-    mediaTemp = (sumaTemperatura / cont).toFixed(2);
-    mediaHA = (sumaHumedadAire / cont2).toFixed(2);
-    mediaHT = (sumaHumedadTierra / cont3).toFixed(2);
-    var ctx = $('#donuPromedio');
-    gMedia = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: [mediaTemp, mediaHA, mediaHT],
-                backgroundColor: backgroundColor,
-            }],
-        },
-        options: {
-            maintainAspectRatio: false,
-        },
-    });
+    let result = data.reduce((acc, curr) => {
+        if (!isNaN(curr.field1)) { acc.temperatura += Number(curr.field1); acc.contTemp++; }
+        if (!isNaN(curr.field2)) { acc.humedadAire += Number(curr.field2); acc.contHumedadAire++; }
+        if (!isNaN(curr.field3)) { acc.humedadTierra += Number(curr.field3); acc.contHumedadTierra++; }
+        return acc;
+    }, { temperatura: 0, humedadAire: 0, humedadTierra: 0, contTemp: 0, contHumedadAire: 0, contHumedadTierra: 0 });
+    let mediaTemp = (result.temperatura / result.contTemp).toFixed(2);
+    let mediaHA = (result.humedadAire / result.contHumedadAire).toFixed(2);
+    let mediaHT = (result.humedadTierra / result.contHumedadTierra).toFixed(2);
+    if (typeof mediaChart === 'undefined') {
+        var ctx = $('#donuPromedio');
+        mediaChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: [mediaTemp, mediaHA, mediaHT],
+                    backgroundColor: backgroundColor,
+                }],
+            },
+            options: { maintainAspectRatio: false, },
+        });
+    } else { updateChart(mediaChart, null, [mediaTemp, mediaHA, mediaHT], null, null); }
+}
+
+function mediana(data) {
+    let medianaTemp = arreglos(data, 'field1');
+    let medianaHA = arreglos(data, 'field2');
+    let medianaHT = arreglos(data, 'field3');
+    if (typeof medianaChart === 'undefined') {
+        var ctx = $('#donuMediana');
+        medianaChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: [medianaTemp, medianaHA, medianaHT],
+                    backgroundColor: backgroundColor,
+                }],
+            },
+            options: { maintainAspectRatio: false, },
+        });
+    } else { updateChart(medianaChart, null, [medianaTemp, medianaHA, medianaHT], null, null); }
+}
+
+function updateChart(chart, fecha, temperatura, humedad_aire, humedad_tierra) {
+    if (!alertShown) {
+        toastr.success('Registros actualizados en tiempo real.', 'Actualización', { timeOut: 3000 });
+        alertShown = true;
+        setTimeout(() => {
+            alertShown = false;
+        }, 3000);
+    }
+
+    if (fecha != null) chart.data.labels = fecha;
+    if (temperatura != null) chart.data.datasets[0].data = temperatura;
+    if (humedad_aire != null) chart.data.datasets[1].data = humedad_aire;
+    if (humedad_tierra != null) chart.data.datasets[2].data = humedad_tierra;
+    chart.update();
 }
 
 function arreglos(data, type) {
     var type = type;
-    arregloField = [];
-    data.forEach(function (dato) {
-        if (!isNaN(dato[type])) {
-            arregloField.push(Number(dato[type]));
-        }
-    });
-    var sorted = arregloField.sort((a, b) => a - b);
-    var middle = Math.floor(sorted.length / 2);
-    if (sorted.length % 2 === 0) {
-        return ((sorted[middle - 1] + sorted[middle]) / 2).toFixed(2);
-    } else {
-        return (sorted[middle]).toFixed(2);
-    }
-}
-
-var medianaTemp = 0;
-var medianaHA = 0;
-var medianaHT = 0;
-function mediana(data) {
-    medianaTemp = arreglos(data, 'field1');
-    medianaHA = arreglos(data, 'field2');
-    medianaHT = arreglos(data, 'field3');
-
-    var ctx = $('#donuMediana');
-    gMediana = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: [medianaTemp, medianaHA, medianaHT],
-                backgroundColor: backgroundColor,
-            }],
-        },
-        options: {
-            maintainAspectRatio: false,
-        },
-    });
-}
-
-function actualizarGrafico() {
-    gDonu.data.datasets[0].data = [sumaTemperatura, sumaHumedadAire, sumaHumedad];
-    gDonu.update();
-
-    gLine.data.labels = fecha;
-    gLine.data.datasets[0].data = temperatura;
-    gLine.data.datasets[1].data = humedad;
-    gLine.data.datasets[2].data = humedadTierra;
-    gLine.update();
-
-    gMedia.data.datasets[0].data = [mediaTemp, mediaHA, mediaHT];
-    gMedia.update();
-
-    gMediana.data.datasets[0].data = [medianaTemp, medianaHA, medianaHT];
-    gMediana.update();
-    toastr.success('Registros actualizados en tiempo real.', 'Actualización', { timeOut: 3000 })
+    arregloField = data.filter(dato => !isNaN(dato[type])).map(dato => Number(dato[type])).sort((a, b) => a - b);
+    var middle = Math.floor(arregloField.length / 2);
+    if (arregloField.length % 2 === 0) {
+        return ((arregloField[middle - 1] + arregloField[middle]) / 2).toFixed(2);
+    } else { return (arregloField[middle]).toFixed(2); }
 }
 
 function formatearFecha(fecha) {
@@ -279,8 +225,6 @@ function formatearFecha(fecha) {
 
 function spamBadge(value, max, min) {
     var valor = Number.parseFloat(value).toFixed(2);
-    if (isNaN(valor) || valor == null || valor == '' || valor == 0) return '<span class="badge bg-secondary">- -</span>';
-    if (valor > max) return '<span class="badge bg-danger">' + valor + '</span>';
-    if (valor >= min) return '<span class="badge bg-success">' + valor + '</span>';
-    return '<span class="badge bg-warning">' + valor + '</span>';
+    var classBadge = (valor > max) ? 'bg-danger' : ((valor >= min) ? 'bg-success' : 'bg-warning');
+    return (isNaN(valor) || valor == null || valor == '' || valor == 0) ? '<span class="badge bg-secondary">- -</span>' : '<span class="badge ' + classBadge + '">' + valor + '</span>';
 }
